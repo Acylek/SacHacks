@@ -12,118 +12,186 @@ import {
   isSameMonth,
   isToday,
   isSameDay,
+  parseISO,
 } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Event } from "@/types/calendar"
 
-// Sample events data
-const events = [
-  { id: 1, title: "Team Meeting", date: new Date(2025, 2, 5), type: "work" },
-  { id: 2, title: "Doctor Appointment", date: new Date(2025, 2, 10), type: "personal" },
-  { id: 3, title: "Project Deadline", date: new Date(2025, 2, 15), type: "work" },
-  { id: 4, title: "Birthday Party", date: new Date(2025, 2, 20), type: "personal" },
-  { id: 5, title: "Conference", date: new Date(2025, 2, 25), type: "work" },
-]
+// Remove or comment out these static events
+// const events = [
+//   { id: 1, title: "Team Meeting", date: new Date(2025, 2, 5), type: "work" },
+//   { id: 2, title: "Doctor Appointment", date: new Date(2025, 2, 10), type: "personal" },
+//   { id: 3, title: "Project Deadline", date: new Date(2025, 2, 15), type: "work" },
+//   { id: 4, title: "Birthday Party", date: new Date(2025, 2, 20), type: "personal" },
+//   { id: 5, title: "Conference", date: new Date(2025, 2, 25), type: "work" },
+// ]
 
-export function Calendar() {
+export function Calendar({ events = [] }: { events?: Event[] }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
 
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(currentMonth)
-  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  // Add a test event directly in the component for debugging
+  const testEvent = {
+    id: "test-event",
+    title: "Test Calendar Event",
+    date: new Date(),
+    type: "work" as const
+  };
 
+  // Combine props events with test event
+  const allEvents = [...events, testEvent];
+  
+  console.log("Calendar component received events:", events);
+  console.log("Calendar test event:", testEvent);
+  console.log("Calendar using all events:", allEvents);
+  
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  // Get days in month
+  const firstDayOfMonth = startOfMonth(currentMonth)
+  const lastDayOfMonth = endOfMonth(currentMonth)
+  const daysInMonth = eachDayOfInterval({
+    start: firstDayOfMonth,
+    end: lastDayOfMonth,
+  })
+
+  // Get events for this month - use allEvents instead of events
+  const eventsThisMonth = allEvents.filter(event => {
+    // Ensure event.date is a Date object
+    const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+    return isSameMonth(eventDate, currentMonth);
+  });
+  
+  console.log("Events for current month:", eventsThisMonth);
+
+  // Function to get events for a specific day
+  const getEventsForDay = (day: Date) => {
+    return eventsThisMonth.filter(event => {
+      // Ensure event.date is a Date object
+      const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+      return isSameDay(eventDate, day);
+    });
+  };
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle>Calendar</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={prevMonth}>
-              <ChevronLeft className="h-4 w-4" />
-              <span className="sr-only">Previous month</span>
-            </Button>
-            <div className="font-medium">{format(currentMonth, "MMMM yyyy")}</div>
-            <Button variant="outline" size="icon" onClick={nextMonth}>
-              <ChevronRight className="h-4 w-4" />
-              <span className="sr-only">Next month</span>
-            </Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          className="h-7 w-7 p-0"
+          onClick={prevMonth}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-lg font-semibold">
+          {format(currentMonth, "MMMM yyyy")}
+        </h2>
+        <Button
+          variant="outline"
+          className="h-7 w-7 p-0"
+          onClick={nextMonth}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-7 text-center">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          <div key={day} className="text-sm font-medium text-muted-foreground">
+            {day}
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-7 gap-1 text-center text-sm font-medium text-muted-foreground mb-2">
-          {dayNames.map((day) => (
-            <div key={day}>{day}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {monthDays.map((day, i) => {
-            const dayEvents = events.filter((event) => isSameDay(event.date, day))
-
-            return (
-              <div
-                key={i}
-                className={cn(
-                  "aspect-square p-1 relative rounded-md border border-transparent",
-                  !isSameMonth(day, currentMonth) && "text-muted-foreground opacity-50",
-                  isSameDay(day, selectedDate) && "border-primary",
-                  isToday(day) && "bg-muted",
-                )}
-                onClick={() => setSelectedDate(day)}
-              >
-                <div className="text-xs">{format(day, "d")}</div>
-                <div className="mt-1 space-y-1">
-                  {dayEvents.slice(0, 2).map((event) => (
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {daysInMonth.map((day, i) => {
+          // Get events for this day
+          const dayEvents = getEventsForDay(day);
+          const hasEvents = dayEvents.length > 0;
+          
+          return (
+            <div
+              key={day.toString()}
+              className={cn(
+                "h-14 p-1 border rounded-md cursor-pointer transition-colors",
+                isToday(day) && "bg-muted",
+                isSameDay(day, selectedDate) && "border-primary",
+                hasEvents && "border-blue-500 shadow-sm"
+              )}
+              onClick={() => setSelectedDate(day)}
+            >
+              <div className="flex flex-col h-full">
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    !isSameMonth(day, currentMonth) && "text-muted-foreground"
+                  )}
+                >
+                  {format(day, "d")}
+                </span>
+                
+                {/* Show event indicators or preview */}
+                <div className="mt-auto flex flex-wrap gap-0.5 overflow-hidden">
+                  {dayEvents.slice(0, 2).map((event, index) => (
                     <div
-                      key={event.id}
+                      key={`${event.id}-${index}`}
                       className={cn(
-                        "text-[10px] truncate rounded px-1 py-0.5",
-                        event.type === "work" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700",
+                        "w-full text-xs truncate px-1 rounded",
+                        event.type === "work" ? "bg-blue-200" : "bg-green-200"
                       )}
+                      title={event.title}
                     >
                       {event.title}
                     </div>
                   ))}
+                  
                   {dayEvents.length > 2 && (
-                    <div className="text-[10px] text-muted-foreground text-center">+{dayEvents.length - 2} more</div>
+                    <div className="text-xs text-muted-foreground w-full text-center">
+                      +{dayEvents.length - 2} more
+                    </div>
                   )}
                 </div>
               </div>
-            )
-          })}
-        </div>
+            </div>
+          );
+        })}
+      </div>
 
-        {/* Selected day events */}
-        {events.filter((event) => isSameDay(event.date, selectedDate)).length > 0 && (
-          <div className="mt-4 border-t pt-4">
-            <h3 className="font-medium mb-2">{format(selectedDate, "MMMM d, yyyy")}</h3>
-            <div className="space-y-2">
-              {events
-                .filter((event) => isSameDay(event.date, selectedDate))
-                .map((event) => (
-                  <div
-                    key={event.id}
+      {/* Show events for selected date */}
+      <div className="mt-4">
+        <h3 className="font-medium">
+          Events for {format(selectedDate, "MMMM d, yyyy")}
+        </h3>
+        <div className="mt-2 space-y-2">
+          {getEventsForDay(selectedDate).length > 0 ? (
+            getEventsForDay(selectedDate).map((event) => (
+              <Card key={event.id} className="p-2">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium">{event.title}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(event.date), "h:mm a")}
+                    </p>
+                  </div>
+                  <span
                     className={cn(
-                      "p-2 rounded-md text-sm",
-                      event.type === "work" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700",
+                      "text-xs px-2 py-1 rounded",
+                      event.type === "work" ? "bg-blue-100" : "bg-green-100"
                     )}
                   >
-                    {event.title}
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
+                    {event.type}
+                  </span>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <p className="text-muted-foreground text-sm">No events scheduled</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 

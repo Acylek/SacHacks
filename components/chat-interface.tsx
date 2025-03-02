@@ -121,7 +121,7 @@ export function ChatInterface() {
         </div>
       </ScrollArea>
       <CardFooter className="pt-3 flex-col gap-3">
-        <Alert variant="outline" className="py-2">
+        <Alert variant="default" className="py-2">
           <AlertDescription className="text-xs">
             Using OpenAI for PDF processing. Text is extracted from PDFs before sending to the model.
           </AlertDescription>
