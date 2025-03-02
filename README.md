@@ -1,0 +1,2 @@
+Calendar Assistant
+Calendar Assistant is your smart scheduling partner designed to transform your busy schedule into a streamlined, stress-free experience. It seamlessly syncs across devices, intelligently prioritizes appointments, and sends timely reminders so you never miss a beat. Whether you're juggling work meetings or planning personal events, Calendar Assistant learns your habits to optimize your day, giving you more time to focus on what truly matters.
