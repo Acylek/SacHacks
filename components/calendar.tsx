@@ -12,7 +12,6 @@ import {
   isSameMonth,
   isToday,
   isSameDay,
-  parseISO,
 } from "date-fns"
 
 import { cn } from "@/lib/utils"
@@ -33,20 +32,18 @@ export function Calendar({ events = [] }: { events?: Event[] }) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
 
-  // Add a test event directly in the component for debugging
-  const testEvent = {
-    id: "test-event",
-    title: "Test Calendar Event",
-    date: new Date(),
-    type: "work" as const
-  };
+  // Remove the test event - we want to use the actual events passed from the parent
+  // const testEvent = {
+  //   id: "test-event",
+  //   title: "Test Calendar Event",
+  //   date: new Date(),
+  //   type: "work" as const
+  // };
 
-  // Combine props events with test event
-  const allEvents = [...events, testEvent];
+  // Use only the events passed as props
+  const allEvents = [...events];
   
   console.log("Calendar component received events:", events);
-  console.log("Calendar test event:", testEvent);
-  console.log("Calendar using all events:", allEvents);
   
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
@@ -59,139 +56,133 @@ export function Calendar({ events = [] }: { events?: Event[] }) {
     end: lastDayOfMonth,
   })
 
-  // Get events for this month - use allEvents instead of events
+  // Filter events for the current month
   const eventsThisMonth = allEvents.filter(event => {
-    // Ensure event.date is a Date object
+    // Ensure we're working with Date objects
     const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
-    return isSameMonth(eventDate, currentMonth);
+    
+    // Debug what's happening with dates
+    console.log("Comparing event date:", eventDate, "with month:", currentMonth);
+    
+    // Check if month and year match the current view
+    return eventDate.getMonth() === currentMonth.getMonth() && 
+           eventDate.getFullYear() === currentMonth.getFullYear();
   });
   
   console.log("Events for current month:", eventsThisMonth);
 
-  // Function to get events for a specific day
-  const getEventsForDay = (day: Date) => {
-    return eventsThisMonth.filter(event => {
-      // Ensure event.date is a Date object
-      const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
-      return isSameDay(eventDate, day);
-    });
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          className="h-7 w-7 p-0"
-          onClick={prevMonth}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="text-lg font-semibold">
-          {format(currentMonth, "MMMM yyyy")}
-        </h2>
-        <Button
-          variant="outline"
-          className="h-7 w-7 p-0"
-          onClick={nextMonth}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="grid grid-cols-7 text-center">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-          <div key={day} className="text-sm font-medium text-muted-foreground">
-            {day}
+    <Card>
+      <CardHeader className="space-y-1 flex flex-row items-center justify-between">
+        <CardTitle>Calendar</CardTitle>
+        <div className="flex gap-1">
+          <Button onClick={prevMonth} variant="outline" size="icon" className="h-7 w-7">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button onClick={nextMonth} variant="outline" size="icon" className="h-7 w-7">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center mb-4">
+          <div className="font-medium">{format(currentMonth, "MMMM yyyy")}</div>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+            <div key={day} className="text-xs font-medium text-muted-foreground">
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: firstDayOfMonth.getDay() }).map((_, i) => (
+            <div key={`empty-start-${i}`} className="h-9" />
+          ))}
+          {daysInMonth.map((day) => {
+            // Find events for this day
+            const dayEvents = eventsThisMonth.filter(event => {
+              const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+              return isSameDay(eventDate, day);
+            });
+            
+            return (
+              <div
+                key={day.toString()}
+                className={cn(
+                  "h-9 flex flex-col items-center justify-center rounded-md text-xs relative",
+                  isToday(day) && "bg-accent text-accent-foreground font-medium",
+                  isSameDay(day, selectedDate) && "border border-primary"
+                )}
+                onClick={() => setSelectedDate(day)}
+              >
+                <span>{format(day, "d")}</span>
+                {dayEvents.length > 0 && (
+                  <div className="absolute bottom-0.5 flex gap-0.5">
+                    {dayEvents.slice(0, 3).map((event) => (
+                      <span
+                        key={event.id}
+                        className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          event.type === "work" ? "bg-blue-500" : "bg-green-500"
+                        )}
+                        title={event.title}
+                      />
+                    ))}
+                    {dayEvents.length > 3 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        +{dayEvents.length - 3}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {Array.from({
+            length: 6 - lastDayOfMonth.getDay(),
+          }).map((_, i) => (
+            <div key={`empty-end-${i}`} className="h-9" />
+          ))}
+        </div>
+        
+        {/* Display events for selected date */}
+        <div className="mt-4 space-y-1">
+          <div className="text-xs font-medium">
+            {format(selectedDate, "MMMM d, yyyy")}
           </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {daysInMonth.map((day, i) => {
-          // Get events for this day
-          const dayEvents = getEventsForDay(day);
-          const hasEvents = dayEvents.length > 0;
-          
-          return (
-            <div
-              key={day.toString()}
-              className={cn(
-                "h-14 p-1 border rounded-md cursor-pointer transition-colors",
-                isToday(day) && "bg-muted",
-                isSameDay(day, selectedDate) && "border-primary",
-                hasEvents && "border-blue-500 shadow-sm"
-              )}
-              onClick={() => setSelectedDate(day)}
-            >
-              <div className="flex flex-col h-full">
-                <span
-                  className={cn(
-                    "text-sm font-medium",
-                    !isSameMonth(day, currentMonth) && "text-muted-foreground"
-                  )}
-                >
-                  {format(day, "d")}
-                </span>
-                
-                {/* Show event indicators or preview */}
-                <div className="mt-auto flex flex-wrap gap-0.5 overflow-hidden">
-                  {dayEvents.slice(0, 2).map((event, index) => (
-                    <div
-                      key={`${event.id}-${index}`}
-                      className={cn(
-                        "w-full text-xs truncate px-1 rounded",
-                        event.type === "work" ? "bg-blue-200" : "bg-green-200"
-                      )}
-                      title={event.title}
-                    >
-                      {event.title}
-                    </div>
-                  ))}
-                  
-                  {dayEvents.length > 2 && (
-                    <div className="text-xs text-muted-foreground w-full text-center">
-                      +{dayEvents.length - 2} more
-                    </div>
-                  )}
+          {eventsThisMonth
+            .filter(event => {
+              const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+              return isSameDay(eventDate, selectedDate);
+            })
+            .map((event) => (
+              <div
+                key={event.id}
+                className={cn(
+                  "p-2 rounded-md text-xs",
+                  event.type === "work" 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary text-secondary-foreground"
+                )}
+              >
+                <div className="font-medium">{event.title}</div>
+                <div className="text-[10px] opacity-80">
+                  {event.date instanceof Date 
+                    ? format(event.date, "h:mm a") 
+                    : format(new Date(event.date), "h:mm a")}
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Show events for selected date */}
-      <div className="mt-4">
-        <h3 className="font-medium">
-          Events for {format(selectedDate, "MMMM d, yyyy")}
-        </h3>
-        <div className="mt-2 space-y-2">
-          {getEventsForDay(selectedDate).length > 0 ? (
-            getEventsForDay(selectedDate).map((event) => (
-              <Card key={event.id} className="p-2">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-medium">{event.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(event.date), "h:mm a")}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "text-xs px-2 py-1 rounded",
-                      event.type === "work" ? "bg-blue-100" : "bg-green-100"
-                    )}
-                  >
-                    {event.type}
-                  </span>
-                </div>
-              </Card>
-            ))
-          ) : (
-            <p className="text-muted-foreground text-sm">No events scheduled</p>
+            ))}
+          {eventsThisMonth.filter(event => {
+            const eventDate = event.date instanceof Date ? event.date : new Date(event.date);
+            return isSameDay(eventDate, selectedDate);
+          }).length === 0 && (
+            <div className="text-xs text-muted-foreground">No events</div>
           )}
         </div>
-      </div>
-    </div>
-  );
+      </CardContent>
+    </Card>
+  )
 }
 
